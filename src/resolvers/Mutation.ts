@@ -51,9 +51,9 @@ export const Mutation = {
 
         if (!title && !content) {
             return {
-                userErrors: [
-                    {message: 'Need to have at least one field to update'}
-                ],
+                userErrors: [{
+                    message: "Need to have at least one field to update'"
+                }],
                 post: null
             }
         }
@@ -89,6 +89,33 @@ export const Mutation = {
         return {
             userErrors: [],
             post: data
+        }
+    },
+    postDelete: async (_: any, { postId }: { postId: string }, { prisma }: Context): Promise<PostPayloadType> => {
+        const post = await prisma.post.findUnique({
+            where: {
+                id: +postId
+            }
+        })
+
+        if (!post) {
+            return {
+                userErrors: [
+                    {message: 'Post deos not exist'}
+                ],
+                post: null
+            }
+        }
+
+        await prisma.post.delete({
+            where: {
+                id: +postId
+            }
+        })
+
+        return {
+            userErrors: [],
+            post
         }
     }
 }
