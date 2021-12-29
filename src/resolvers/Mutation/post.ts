@@ -147,7 +147,7 @@ export const postResolvers = {
 
         const post = await prisma.post.findUnique({
             where: {
-                id: Number(postId),
+                id: +postId,
             },
         });
 
@@ -172,5 +172,81 @@ export const postResolvers = {
             userErrors: [],
             post,
         };
-    }
+    },
+    postPublish: async (
+        _: any,
+        { postId }: { postId: string },
+        { prisma, userInfo }: Context
+    ): Promise<PostPayloadType> => {
+        if (!userInfo) {
+            return {
+                userErrors: [
+                    {
+                        message: "Forbidden access (unauthenticated)",
+                    },
+                ],
+                post: null,
+            };
+        }
+
+        const error = await canUserMutatePost({
+            userId: userInfo.userId,
+            postId: Number(postId),
+            prisma,
+        });
+
+        if (error) return error;
+
+        const data = await prisma.post.update({
+            where: {
+                id: Number(postId),
+            },
+            data: {
+                published: true,
+            },
+        })
+
+        return {
+            userErrors: [],
+            post: data
+        };
+    },
+    postUnpublish: async (
+        _: any,
+        { postId }: { postId: string },
+        { prisma, userInfo }: Context
+    ): Promise<PostPayloadType> => {
+        if (!userInfo) {
+            return {
+                userErrors: [
+                    {
+                        message: "Forbidden access (unauthenticated)",
+                    },
+                ],
+                post: null,
+            };
+        }
+
+        const error = await canUserMutatePost({
+            userId: userInfo.userId,
+            postId: Number(postId),
+            prisma,
+        });
+
+        if (error) return error;
+
+        const data = await prisma.post.update({
+            where: {
+                id: Number(postId),
+            },
+            data: {
+                published: false,
+            },
+        })
+
+        return {
+            userErrors: [],
+            post: data
+        };
+    },
 }
