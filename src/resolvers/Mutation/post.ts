@@ -1,6 +1,6 @@
 
 import { Post } from '@prisma/client'
-import { Context } from '../index'
+import { Context } from '../../index'
 
 interface PostCreateArgs {
     post: {
@@ -21,7 +21,7 @@ interface PostUpdateArg {
     post: PostCreateArgs['post']
 }
 
-export const Mutation = {
+export const postResolvers = {
     postCreate: async (_: any, { post }: PostCreateArgs, { prisma }: Context): Promise<PostPayloadType> => {
         const { title, content } = post;
         if (!title || !content) {
