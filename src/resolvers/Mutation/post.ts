@@ -1,6 +1,7 @@
 
 import { Post } from '@prisma/client'
 import { Context } from '../../index'
+import { canUserMutatePost } from '../../utils/canUserMutatePost'
 
 interface PostCreateArgs {
     post: {
@@ -22,7 +23,16 @@ interface PostUpdateArg {
 }
 
 export const postResolvers = {
-    postCreate: async (_: any, { post }: PostCreateArgs, { prisma }: Context): Promise<PostPayloadType> => {
+    postCreate: async (_: any, { post }: PostCreateArgs, { prisma, userInfo }: Context): Promise<PostPayloadType> => {
+        if (!userInfo) {
+            return {
+                userErrors: [
+                    { message: 'Forbidden access (unauthenticated' }
+                ],
+                post: null
+            }
+        }
+
         const { title, content } = post;
         if (!title || !content) {
             return {
@@ -37,7 +47,7 @@ export const postResolvers = {
             data: {
                 title,
                 content,
-                authorId: 1
+                authorId: userInfo.userId
             }
         })
 
@@ -46,7 +56,27 @@ export const postResolvers = {
             post: data
         }
     },
-    postUpdate: async (_: any, { post, postId }: PostUpdateArg, { prisma }: Context): Promise<PostPayloadType> => {
+    postUpdate: async (_: any, { post, postId }: PostUpdateArg, { prisma, userInfo }: Context): Promise<PostPayloadType> => {
+
+        if (!userInfo) {
+            return {
+                userErrors: [
+                    {
+                        message: "Forbidden access (unauthenticated)",
+                    },
+                ],
+                post: null,
+            };
+        }
+
+        const error = await canUserMutatePost({
+            userId: userInfo.userId,
+            postId: Number(postId),
+            prisma,
+        });
+
+        if (error) return error;
+
         const { title, content } = post;
 
         if (!title && !content) {
@@ -67,7 +97,7 @@ export const postResolvers = {
         if (!existingPost) {
             return {
                 userErrors: [
-                    {message: 'Post deos not exist'}
+                    { message: 'Post deos not exist' }
                 ],
                 post: null
             }
@@ -82,7 +112,7 @@ export const postResolvers = {
         if (!content) delete payloadToUpdate.content;
 
         const data = await prisma.post.update({
-            data: {...payloadToUpdate},
+            data: { ...payloadToUpdate },
             where: { id: +postId }
         })
 
@@ -91,31 +121,56 @@ export const postResolvers = {
             post: data
         }
     },
-    postDelete: async (_: any, { postId }: { postId: string }, { prisma }: Context): Promise<PostPayloadType> => {
+    postDelete: async (
+        _: any,
+        { postId }: { postId: string },
+        { prisma, userInfo }: Context
+    ): Promise<PostPayloadType> => {
+        if (!userInfo) {
+            return {
+                userErrors: [
+                    {
+                        message: "Forbidden access (unauthenticated)",
+                    },
+                ],
+                post: null,
+            };
+        }
+
+        const error = await canUserMutatePost({
+            userId: userInfo.userId,
+            postId: Number(postId),
+            prisma,
+        });
+
+        if (error) return error;
+
         const post = await prisma.post.findUnique({
             where: {
-                id: +postId
-            }
-        })
+                id: Number(postId),
+            },
+        });
 
         if (!post) {
             return {
                 userErrors: [
-                    {message: 'Post deos not exist'}
+                    {
+                        message: "Post does not exist",
+                    },
                 ],
-                post: null
-            }
+                post: null,
+            };
         }
 
         await prisma.post.delete({
             where: {
-                id: +postId
-            }
-        })
+                id: Number(postId),
+            },
+        });
 
         return {
             userErrors: [],
-            post
-        }
+            post,
+        };
     }
 }
